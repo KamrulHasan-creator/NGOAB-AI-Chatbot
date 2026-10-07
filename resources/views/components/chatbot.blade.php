@@ -134,7 +134,7 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
         }
 
         #ai-chatbot-root {
-            position: fixed;
+            position: fixed !important; /* FIX: always fixed to the viewport */
             visibility: hidden;
             bottom: 0;
             z-index: 2147483000;
@@ -565,6 +565,8 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
         /* ===== Launcher ===== */
         #ai-chatbot-root .ai-chatbot-launcher {
             position: relative;
+            left: 20px;   /* FIX: was translate(20px, ...) */
+            top: -15px;   /* FIX: was translate(..., -15px) */
             z-index: 10;
             display: block;
             width: min(200px, calc(100vw - 40px));
@@ -572,15 +574,17 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
             overflow: hidden;
             padding: 0;
             border: 0;
+            height: 82px;
             background: transparent;
             cursor: pointer;
             line-height: 0;
-            transition: transform .18s ease;
-            transform: translate(20px, 0);
+            transition: none; /* FIX: no movement on hover */
         }
 
         #ai-chatbot-root .ai-chatbot-launcher:hover {
-            transform: scale(1.03);
+            left: 20px;
+            top: -15px;
+            transform: none;
         }
 
         #ai-chatbot-root .ai-chatbot-launcher-art {
@@ -823,6 +827,12 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
 
             var root = document.getElementById('ai-chatbot-root');
             if (!root) return;
+
+            // FIX: attach directly to <html> (outside <body>) so no wrapper/body
+            // transform/filter/perspective can break position: fixed
+            if (root.parentNode !== document.documentElement) {
+                document.documentElement.appendChild(root);
+            }
 
             var windowEl    = root.querySelector('.ai-chatbot-window');
             var launcher    = root.querySelector('[data-chatbot-open]');
