@@ -1,127 +1,52 @@
 <?php
-$__cbPath = ltrim($chatbotEndpoint ?? '/chatbot/message', '/');
-
-if (request()->isMethod('post') && request()->path() === $__cbPath) {
-
-    $__cbJson = function (array $payload, int $status = 200) {
-        throw new \Illuminate\Http\Exceptions\HttpResponseException(
-            response()->json($payload, $status)
-        );
-    };
-
-    $__cbLocale  = session('locale', 'bn') === 'en' ? 'en' : 'bn';
-    $__cbMessage = trim((string) request()->input('message', ''));
-
-    if ($__cbMessage === '') {
-        session()->forget('chatbot_history');
-        $__cbJson(['ok' => true]);
-    }
-
-    $__cbMessage = mb_substr($__cbMessage, 0, 2000);
-
-    $__cbHistory   = session('chatbot_history', []);
-    $__cbHistory[] = ['role' => 'user', 'content' => $__cbMessage];
-    $__cbHistory   = array_slice($__cbHistory, -20);
-
-    while (! empty($__cbHistory) && $__cbHistory[0]['role'] !== 'user') {
-        array_shift($__cbHistory);
-    }
-
-    $__cbSystem = $__cbLocale === 'en'
-        ? 'You are Saki, a friendly website assistant. Always reply in English. Keep answers clear, helpful and short.'
-        : 'আপনি সাকি, একটি বন্ধুত্বপূর্ণ ও সহায়ক ওয়েবসাইট অ্যাসিস্ট্যান্ট। সবসময় বাংলায় উত্তর দিন। উত্তর সহজ, স্বাভাবিক, পরিষ্কার এবং সংক্ষিপ্ত রাখুন।';
-
-    try {
-        $__cbResponse = \Illuminate\Support\Facades\Http::withHeaders([
-            'x-api-key'         => env('ANTHROPIC_API_KEY'),
-            'anthropic-version' => '2023-06-01',
-            'content-type'      => 'application/json',
-        ])->timeout(30)->post('https://api.anthropic.com/v1/messages', [
-            'model'      => env('ANTHROPIC_MODEL', 'claude-sonnet-5-5'),
-            'max_tokens' => 1000,
-            'system'     => $__cbSystem,
-            'messages'   => $__cbHistory,
-        ]);
-
-        if ($__cbResponse->failed()) {
-            \Illuminate\Support\Facades\Log::error('Chatbot API error', ['body' => $__cbResponse->body()]);
-            $__cbJson(['message' => 'error'], 500);
-        }
-
-        $__cbReply = collect($__cbResponse->json('content', []))
-            ->where('type', 'text')
-            ->pluck('text')
-            ->implode("\n");
-
-        $__cbHistory[] = ['role' => 'assistant', 'content' => $__cbReply];
-        session(['chatbot_history' => $__cbHistory]);
-
-        $__cbJson(['message' => $__cbReply]);
-
-    } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
-        throw $e;
-    } catch (\Throwable $e) {
-        \Illuminate\Support\Facades\Log::error('Chatbot exception', ['error' => $e->getMessage()]);
-        $__cbJson(['message' => 'error'], 500);
-    }
-}
-
 $chatbotLocale = app()->getLocale() === 'en' ? 'en' : 'bn';
 
-if ($chatbotLocale === 'en') {
-    $chatbotName          = 'Saki';
-    $chatbotTitle         = 'Saki here';
-    $chatbotOnline        = 'Online';
-    $chatbotChatLabel     = 'Chat';
-    $chatbotMinimize      = 'Minimize chat';
-    $chatbotClose         = 'Close chat';
-    $chatbotPlaceholder   = 'Write your message...';
-    $chatbotYourMessage   = 'Write your message';
-    $chatbotSend          = 'Send';
-    $chatbotOpen          = 'Open chat';
-    $chatbotPoweredText   = 'Powered by';
-    $chatbotWelcome       = 'Hello! How can I help you today?';
-    $chatbotError         = 'Sorry, something went wrong. Please try again.';
-    $chatbotUnknown       = 'Sorry, I could not get a response.';
-} else {
-    $chatbotName          = 'সাকি';
-    $chatbotTitle         = 'সাকি বলছি';
-    $chatbotOnline        = 'অনলাইনে আছি';
-    $chatbotChatLabel     = 'চ্যাট';
-    $chatbotMinimize      = 'চ্যাট ছোট করুন';
-    $chatbotClose         = 'চ্যাট বন্ধ করুন';
-    $chatbotPlaceholder   = 'আপনার বার্তা লিখুন...';
-    $chatbotYourMessage   = 'আপনার বার্তা লিখুন';
-    $chatbotSend          = 'পাঠান';
-    $chatbotOpen          = 'চ্যাট খুলুন';
-    $chatbotPoweredText   = 'পরিচালিত';
-    $chatbotWelcome       = 'আমি কীভাবে আপনাকে সাহায্য করতে পারি?';
-    $chatbotError         = 'দুঃখিত, এই মুহূর্তে একটি সমস্যা হয়েছে। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।';
-    $chatbotUnknown       = 'দুঃখিত, আপনার প্রশ্নের উত্তর খুঁজে পাচ্ছি না। অনুগ্রহ করে অন্যভাবে প্রশ্নটি করুন।';
-}
+$chatbotCopy = [
+    'en' => [
+        'name'        => 'Saki',
+        'title'       => 'Saki here',
+        'online'      => 'Online',
+        'offline'     => 'Offline',
+        'chat'        => 'Chat',
+        'minimize'    => 'Minimize chat',
+        'close'       => 'Close chat',
+        'placeholder' => 'Write your message...',
+        'message'     => 'Write your message',
+        'send'        => 'Send',
+        'open'        => 'Open chat',
+        'powered'     => 'Powered by',
+        'welcome'     => 'Hello! How can I help you today?',
+        'error'       => 'Sorry, something went wrong. Please try again.',
+        'unknown'     => 'Sorry, I could not get a response.',
+        'launcher'    => '/images/SAKI_English.png',
+    ],
+    'bn' => [
+        'name'        => 'সাকি',
+        'title'       => 'সাকি বলছি',
+        'online'      => 'অনলাইনে আছি',
+        'offline'     => 'অফলাইনে আছি',
+        'chat'        => 'চ্যাট',
+        'minimize'    => 'চ্যাট ছোট করুন',
+        'close'       => 'চ্যাট বন্ধ করুন',
+        'placeholder' => 'আপনার বার্তা লিখুন...',
+        'message'     => 'আপনার বার্তা লিখুন',
+        'send'        => 'পাঠান',
+        'open'        => 'চ্যাট খুলুন',
+        'powered'     => 'পরিচালিত',
+        'welcome'     => 'আমি কীভাবে আপনাকে সাহায্য করতে পারি?',
+        'error'       => 'দুঃখিত, এই মুহূর্তে একটি সমস্যা হয়েছে। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।',
+        'unknown'     => 'দুঃখিত, আপনার প্রশ্নের উত্তর খুঁজে পাচ্ছি না। অনুগ্রহ করে অন্যভাবে প্রশ্নটি করুন।',
+        'launcher'    => '/images/SAKI_bangla.png',
+    ],
+];
+$chatbotText = $chatbotCopy[$chatbotLocale];
 
-$chatbotEndpoint      = $chatbotEndpoint ?? '/chatbot/message';
 $chatbotPoweredBy     = $chatbotPoweredBy ?? 'Orange BD';
-$chatbotResetEndpoint = $chatbotResetEndpoint ?? $chatbotEndpoint;
-
-$chatbotAvatar = $chatbotAvatar ?? asset('images/logo-1.png');
-
-$chatbotLauncherImage = $chatbotLauncherImage ?? (
-    $chatbotLocale === 'en'
-        ? asset('images/SAKI_English.png')
-        : asset('images/SAKI_bangla.png')
-);
-
-$chatbotPosition = in_array($chatbotPosition ?? 'right', ['left', 'right'], true)
-    ? ($chatbotPosition ?? 'right')
-    : 'right';
-
-$chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
-    ? ($chatbotBotSide ?? 'left')
-    : 'left';
+$chatbotAvatar        = $chatbotAvatar ?? asset('images/logo-1.png');
+$chatbotLauncherImage = $chatbotLauncherImage ?? asset(ltrim($chatbotText['launcher'], '/'));
+$chatbotPosition      = ($chatbotPosition ?? 'right') === 'left' ? 'left' : 'right';
 ?>
     <style>
-        /* ===== Base ===== */
         #ai-chatbot-root,
         #ai-chatbot-root * {
             box-sizing: border-box;
@@ -134,7 +59,7 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
         }
 
         #ai-chatbot-root {
-            position: fixed !important; /* FIX: always fixed to the viewport */
+            position: fixed !important;
             visibility: hidden;
             bottom: 0;
             z-index: 2147483000;
@@ -145,13 +70,8 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
             color: #18262b;
         }
 
-        #ai-chatbot-root[data-position="right"] {
-            right: max(20px, env(safe-area-inset-right));
-        }
-
-        #ai-chatbot-root[data-position="left"] {
-            left: max(20px, env(safe-area-inset-left));
-        }
+        #ai-chatbot-root[data-position="right"] { right: max(20px, env(safe-area-inset-right)); }
+        #ai-chatbot-root[data-position="left"]  { left: max(20px, env(safe-area-inset-left)); }
 
         #ai-chatbot-root .ai-chatbot-scroll {
             scrollbar-width: none;
@@ -164,7 +84,6 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
             display: none;
         }
 
-        /* ===== Animations ===== */
         @keyframes ai-chatbot-pop {
             0%   { opacity: 0; transform: translateY(14px) scale(.96); }
             100% { opacity: 1; transform: none; }
@@ -188,7 +107,6 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
             animation: ai-chatbot-launcher-in .25s ease-out;
         }
 
-        /* ===== Window ===== */
         #ai-chatbot-root .ai-chatbot-window {
             position: absolute;
             bottom: 88px;
@@ -217,7 +135,6 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
             transform-origin: bottom left;
         }
 
-        /* ===== Header ===== */
         #ai-chatbot-root .ai-chatbot-header {
             flex: 0 0 auto;
             display: flex;
@@ -265,6 +182,10 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
             background: #22c55e;
         }
 
+        #ai-chatbot-root[data-server="offline"] .ai-chatbot-avatar-status {
+            background: #ef4444;
+        }
+
         #ai-chatbot-root .ai-chatbot-title {
             min-width: 0;
         }
@@ -302,24 +223,15 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
             border: 0;
             border-radius: 10px;
             background: transparent;
-            color: #64747a;
+            color: #000;
             cursor: pointer;
             transition: background .15s ease, color .15s ease;
         }
 
         #ai-chatbot-root .ai-chatbot-icon-button:hover {
             background: #f1f5f5;
-            color: #172126;
         }
 
-        #ai-chatbot-root .ai-chatbot-icon-button[data-chatbot-close],
-        #ai-chatbot-root .ai-chatbot-icon-button[data-chatbot-close]:hover,
-        #ai-chatbot-root .ai-chatbot-icon-button[data-chatbot-minimize],
-        #ai-chatbot-root .ai-chatbot-icon-button[data-chatbot-minimize]:hover {
-            color: #000;
-        }
-
-        /* ===== Messages ===== */
         #ai-chatbot-root .ai-chatbot-messages-wrap {
             flex: 1 1 auto;
             min-height: 0;
@@ -335,12 +247,10 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
             z-index: 0;
             inset: 0;
             pointer-events: none;
-
             background-image: url('/images/bg-1.jpg');
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-
             filter: blur(1px);
             opacity: 0.45;
         }
@@ -365,10 +275,6 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
             align-items: flex-start;
             gap: 8px;
             margin-bottom: 12px;
-        }
-
-        #ai-chatbot-root .ai-chatbot-message-row.bot {
-            justify-content: flex-start;
         }
 
         #ai-chatbot-root .ai-chatbot-message-row.user {
@@ -446,7 +352,6 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
         #ai-chatbot-root .ai-chatbot-message-row.bot .ai-chatbot-time  { text-align: left; }
         #ai-chatbot-root .ai-chatbot-message-row.user .ai-chatbot-time { text-align: right; }
 
-        /* ===== Typing indicator ===== */
         #ai-chatbot-root .ai-chatbot-typing {
             display: inline-flex;
             align-items: center;
@@ -462,15 +367,9 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
             animation: ai-chatbot-typing 1.2s infinite ease-in-out;
         }
 
-        #ai-chatbot-root .ai-chatbot-typing span:nth-child(2) {
-            animation-delay: .15s;
-        }
+        #ai-chatbot-root .ai-chatbot-typing span:nth-child(2) { animation-delay: .15s; }
+        #ai-chatbot-root .ai-chatbot-typing span:nth-child(3) { animation-delay: .30s; }
 
-        #ai-chatbot-root .ai-chatbot-typing span:nth-child(3) {
-            animation-delay: .30s;
-        }
-
-        /* ===== Input ===== */
         #ai-chatbot-root .ai-chatbot-input-area {
             flex: 0 0 auto;
             padding: 10px 12px 9px;
@@ -510,13 +409,8 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
             -ms-overflow-style: none;
         }
 
-        #ai-chatbot-root .ai-chatbot-input::-webkit-scrollbar {
-            display: none;
-        }
-
-        #ai-chatbot-root .ai-chatbot-input::placeholder {
-            color: #9aa6aa;
-        }
+        #ai-chatbot-root .ai-chatbot-input::-webkit-scrollbar { display: none; }
+        #ai-chatbot-root .ai-chatbot-input::placeholder { color: #9aa6aa; }
 
         #ai-chatbot-root .ai-chatbot-send {
             width: 38px;
@@ -533,25 +427,15 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
             transition: background .15s ease, transform .15s ease;
         }
 
-        #ai-chatbot-root .ai-chatbot-send:hover {
-            background: #15803d;
-        }
-
-        #ai-chatbot-root .ai-chatbot-send:active {
-            transform: scale(.94);
-        }
-
-        #ai-chatbot-root .ai-chatbot-send:disabled {
-            opacity: .55;
-            cursor: not-allowed;
-        }
+        #ai-chatbot-root .ai-chatbot-send:hover { background: #15803d; }
+        #ai-chatbot-root .ai-chatbot-send:active { transform: scale(.94); }
+        #ai-chatbot-root .ai-chatbot-send:disabled { opacity: .55; cursor: not-allowed; }
 
         #ai-chatbot-root button:focus-visible,
         #ai-chatbot-root textarea:focus-visible {
             outline-offset: 2px;
         }
 
-        /* ===== Footer ===== */
         #ai-chatbot-root .ai-chatbot-footer {
             flex: 0 0 auto;
             padding: 3px 12px 8px;
@@ -562,29 +446,21 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
             background: #fff;
         }
 
-        /* ===== Launcher ===== */
         #ai-chatbot-root .ai-chatbot-launcher {
             position: relative;
-            left: 20px;   /* FIX: was translate(20px, ...) */
-            top: -15px;   /* FIX: was translate(..., -15px) */
+            left: 20px;
+            top: -15px;
             z-index: 10;
             display: block;
             width: min(200px, calc(100vw - 40px));
-            aspect-ratio: 251 / 133;
+            height: 82px;
             overflow: hidden;
             padding: 0;
             border: 0;
-            height: 82px;
             background: transparent;
             cursor: pointer;
             line-height: 0;
-            transition: none; /* FIX: no movement on hover */
-        }
-
-        #ai-chatbot-root .ai-chatbot-launcher:hover {
-            left: 20px;
-            top: -15px;
-            transform: none;
+            transition: none;
         }
 
         #ai-chatbot-root .ai-chatbot-launcher-art {
@@ -605,39 +481,31 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
 
         #ai-chatbot-root .ai-chatbot-launcher-img {
             display: block;
-            flex: none;
             width: 100%;
             height: 100%;
             object-fit: contain;
             object-position: center;
         }
 
-        /* Colored layer over the text rectangle; size/position/mask are per language below */
         #ai-chatbot-root .ai-chatbot-launcher-text-bg {
             position: absolute;
             z-index: 1;
-            background-color: White;
+            left: 34%;
+            top: 9%;
+            width: 58%;
+            height: 74%;
+            background-color: #fff;
             mix-blend-mode: multiply;
             border-radius: 0 18px 18px 0;
             pointer-events: none;
         }
 
-        /* English */
         #ai-chatbot-root[data-locale="en"] .ai-chatbot-launcher-text-bg {
-            left: 34%;
-            top: 9%;
-            width: 58%;
-            height: 74%;
             -webkit-mask-image: radial-gradient(ellipse 10% 50% at 0% 52%, transparent 98%, #000 100%);
             mask-image: radial-gradient(ellipse 11% 43% at 0% 51%, transparent 98%, #000 100%);
         }
 
-        /* Bangla */
         #ai-chatbot-root[data-locale="bn"] .ai-chatbot-launcher-text-bg {
-            left: 34%;
-            top: 9%;
-            width: 58%;
-            height: 74%;
             -webkit-mask-image: radial-gradient(ellipse 25% 60% at -23% 48%, transparent 98%, #000 100%);
             mask-image: radial-gradient(ellipse 11% 43% at 0% 51%, transparent 98%, #000 100%);
         }
@@ -653,21 +521,14 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
             box-shadow: 0 8px 24px rgba(22, 163, 74, .35);
         }
 
-        /* ===== Mobile ===== */
         @media (max-width: 640px) {
             #ai-chatbot-root {
                 bottom: max(12px, env(safe-area-inset-bottom));
             }
 
-            #ai-chatbot-root[data-position="right"] {
-                right: max(12px, env(safe-area-inset-right));
-            }
+            #ai-chatbot-root[data-position="right"] { right: max(12px, env(safe-area-inset-right)); }
+            #ai-chatbot-root[data-position="left"]  { left: max(12px, env(safe-area-inset-left)); }
 
-            #ai-chatbot-root[data-position="left"] {
-                left: max(12px, env(safe-area-inset-left));
-            }
-
-            #ai-chatbot-root .ai-chatbot-window,
             #ai-chatbot-root[data-position="right"] .ai-chatbot-window,
             #ai-chatbot-root[data-position="left"] .ai-chatbot-window {
                 position: fixed;
@@ -687,9 +548,7 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
         }
 
         @media (max-width: 380px) {
-            #ai-chatbot-root .ai-chatbot-header {
-                padding: 12px;
-            }
+            #ai-chatbot-root .ai-chatbot-header { padding: 12px; }
 
             #ai-chatbot-root .ai-chatbot-avatar {
                 width: 43px;
@@ -697,9 +556,7 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
                 flex-basis: 43px;
             }
 
-            #ai-chatbot-root .ai-chatbot-title-name {
-                font-size: 15px;
-            }
+            #ai-chatbot-root .ai-chatbot-title-name { font-size: 15px; }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -713,29 +570,24 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
 
     <div id="ai-chatbot-root"
          data-open="false"
-         data-minimized="false"
          data-position="{{ $chatbotPosition }}"
-         data-bot-side="{{ $chatbotBotSide }}"
-         data-endpoint="{{ $chatbotEndpoint }}"
-         data-welcome="{{ $chatbotWelcome }}"
          data-locale="{{ $chatbotLocale }}"
-         data-avatar="{{ $chatbotAvatar }}"
-         data-reset-endpoint="{{ $chatbotResetEndpoint }}">
+         data-avatar="{{ $chatbotAvatar }}">
 
         <section class="ai-chatbot-window"
-                 aria-label="{{ $chatbotName }} {{ $chatbotChatLabel }}"
+                 aria-label="{{ $chatbotText['name'] }} {{ $chatbotText['chat'] }}"
                  style="display:none;">
 
             <header class="ai-chatbot-header">
                 <div class="ai-chatbot-header-left">
                     <div class="ai-chatbot-avatar">
-                        <img src="{{ $chatbotAvatar }}" alt="{{ $chatbotName }}">
+                        <img src="{{ $chatbotAvatar }}" alt="{{ $chatbotText['name'] }}">
                         <span class="ai-chatbot-avatar-status"></span>
                     </div>
 
                     <div class="ai-chatbot-title">
-                        <span class="ai-chatbot-title-name">{{ $chatbotTitle }}</span>
-                        <span class="ai-chatbot-title-status">{{ $chatbotOnline }}</span>
+                        <span class="ai-chatbot-title-name">{{ $chatbotText['title'] }}</span>
+                        <span class="ai-chatbot-title-status">{{ $chatbotText['online'] }}</span>
                     </div>
                 </div>
 
@@ -743,8 +595,8 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
                     <button type="button"
                             class="ai-chatbot-icon-button"
                             data-chatbot-minimize
-                            aria-label="{{ $chatbotMinimize }}"
-                            title="{{ $chatbotMinimize }}">
+                            aria-label="{{ $chatbotText['minimize'] }}"
+                            title="{{ $chatbotText['minimize'] }}">
                         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                             <path d="M6 12h12"/>
                         </svg>
@@ -753,8 +605,8 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
                     <button type="button"
                             class="ai-chatbot-icon-button"
                             data-chatbot-close
-                            aria-label="{{ $chatbotClose }}"
-                            title="{{ $chatbotClose }}">
+                            aria-label="{{ $chatbotText['close'] }}"
+                            title="{{ $chatbotText['close'] }}">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                             <path d="M6 6l12 12"/>
                             <path d="M18 6L6 18"/>
@@ -775,16 +627,16 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
                     <textarea class="ai-chatbot-input ai-chatbot-scroll"
                               data-chatbot-input
                               rows="1"
-                              placeholder="{{ $chatbotPlaceholder }}"
+                              placeholder="{{ $chatbotText['placeholder'] }}"
                               autocomplete="off"
                               spellcheck="false"
-                              aria-label="{{ $chatbotYourMessage }}"></textarea>
+                              aria-label="{{ $chatbotText['message'] }}"></textarea>
 
                     <button type="button"
                             class="ai-chatbot-send"
                             data-chatbot-send
-                            aria-label="{{ $chatbotSend }}"
-                            title="{{ $chatbotSend }}">
+                            aria-label="{{ $chatbotText['send'] }}"
+                            title="{{ $chatbotText['send'] }}">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M22 2L11 13"/>
                             <path d="M22 2L15 22L11 13L2 9L22 2Z"/>
@@ -795,7 +647,7 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
 
             @if ($chatbotPoweredBy)
                 <div class="ai-chatbot-footer">
-                    {{ $chatbotPoweredText }}
+                    {{ $chatbotText['powered'] }}
                     <span style="font-weight:600;">{{ $chatbotPoweredBy }}</span>
                 </div>
             @endif
@@ -804,11 +656,11 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
         <button type="button"
                 class="ai-chatbot-launcher"
                 data-chatbot-open
-                aria-label="{{ $chatbotOpen }}: {{ $chatbotName }}">
+                aria-label="{{ $chatbotText['open'] }}: {{ $chatbotText['name'] }}">
             <span class="ai-chatbot-launcher-art">
                 <img class="ai-chatbot-launcher-img"
                      src="{{ $chatbotLauncherImage }}"
-                     alt="{{ $chatbotName }}"
+                     alt="{{ $chatbotText['name'] }}"
                      onerror="this.parentNode.style.display='none';this.closest('button').querySelector('.ai-chatbot-launcher-fallback').style.display='flex';">
                 <span class="ai-chatbot-launcher-text-bg" aria-hidden="true"></span>
             </span>
@@ -828,8 +680,6 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
             var root = document.getElementById('ai-chatbot-root');
             if (!root) return;
 
-            // FIX: attach directly to <html> (outside <body>) so no wrapper/body
-            // transform/filter/perspective can break position: fixed
             if (root.parentNode !== document.documentElement) {
                 document.documentElement.appendChild(root);
             }
@@ -842,59 +692,23 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
             var inputEl     = root.querySelector('[data-chatbot-input]');
             var sendBtn     = root.querySelector('[data-chatbot-send]');
 
-            var resetEndpoint = root.dataset.resetEndpoint || '';
-            var welcome       = root.dataset.welcome || 'আমি কীভাবে আপনাকে সাহায্য করতে পারি?';
             var botAvatar     = root.dataset.avatar || '';
             var generation    = 0;
 
-            var CHAT_API_URL = 'http://62.171.148.12:4007/api/v1/chat';
-            var sessionId    = null;   
-            var lastSources  = [];     // "sources" from the latest API response (not shown in the UI)
+            var CHAT_API_URL         = 'https://chat.orangebd.com/ngoab/api/v1/chat';
+            var HEALTH_API_URL       = CHAT_API_URL.replace(/\/chat$/, '/health');
+            var STATUS_CHECK_TIMEOUT = 5000;
+            var STATUS_POLL_INTERVAL = 15000;
+            var sessionId            = null;
+            var serverOnline         = true;
+            var statusTimer          = null;
 
             var websiteLanguageKey = 'main-website-language';
-            var CSRF_FALLBACK = @json(csrf_token());
+            var translations  = @json($chatbotCopy);
 
-            var T = @json([
-                'error'   => $chatbotError,
-                'unknown' => $chatbotUnknown,
-            ]);
-
-            var chatbotTranslations = {
-                en: {
-                    name: 'Saki',
-                    title: 'Saki here',
-                    online: 'Online',
-                    chat: 'Chat',
-                    minimize: 'Minimize chat',
-                    close: 'Close chat',
-                    placeholder: 'Write your message...',
-                    message: 'Write your message',
-                    send: 'Send',
-                    open: 'Open chat',
-                    powered: 'Powered by',
-                    welcome: 'Hello! How can I help you today?',
-                    error: 'Sorry, something went wrong. Please try again.',
-                    unknown: 'Sorry, I could not get a response.',
-                    launcher: '/images/SAKI_English.png'
-                },
-                bn: {
-                    name: 'সাকি',
-                    title: 'সাকি বলছি',
-                    online: 'অনলাইনে আছি',
-                    chat: 'চ্যাট',
-                    minimize: 'চ্যাট ছোট করুন',
-                    close: 'চ্যাট বন্ধ করুন',
-                    placeholder: 'আপনার বার্তা লিখুন...',
-                    message: 'আপনার বার্তা লিখুন',
-                    send: 'পাঠান',
-                    open: 'চ্যাট খুলুন',
-                    powered: 'পরিচালিত',
-                    welcome: 'আমি কীভাবে আপনাকে সাহায্য করতে পারি?',
-                    error: 'দুঃখিত, এই মুহূর্তে একটি সমস্যা হয়েছে। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।',
-                    unknown: 'দুঃখিত, আপনার প্রশ্নের উত্তর খুঁজে পাচ্ছি না। অনুগ্রহ করে অন্যভাবে প্রশ্নটি করুন।',
-                    launcher: '/images/SAKI_bangla.png'
-                }
-            };
+            function getCopy() {
+                return translations[root.dataset.locale] || translations.bn;
+            }
 
             function newSessionId() {
                 if (window.crypto && typeof window.crypto.randomUUID === 'function') {
@@ -903,20 +717,64 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
                 return 'sess-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
             }
 
-            function getCsrfToken() {
-                var meta = document.querySelector('meta[name="csrf-token"]');
-                return meta ? meta.getAttribute('content') : CSRF_FALLBACK;
+            function applyServerStatus() {
+                var copy = getCopy();
+                var statusEl = root.querySelector('.ai-chatbot-title-status');
+                root.dataset.server = serverOnline ? 'online' : 'offline';
+                if (statusEl) {
+                    statusEl.textContent = serverOnline ? copy.online : copy.offline;
+                }
+            }
+
+            function setServerOnline(isOnline) {
+                isOnline = !!isOnline;
+                if (serverOnline === isOnline) return;
+                serverOnline = isOnline;
+                applyServerStatus();
+            }
+
+            async function checkServerStatus() {
+                var controller = (typeof AbortController === 'function') ? new AbortController() : null;
+                var timer = setTimeout(function () {
+                    if (controller) controller.abort();
+                }, STATUS_CHECK_TIMEOUT);
+
+                try {
+                    var res = await fetch(HEALTH_API_URL, {
+                        method: 'GET',
+                        cache: 'no-store',
+                        headers: { 'Accept': 'application/json' },
+                        signal: controller ? controller.signal : undefined
+                    });
+                    setServerOnline(res.status < 500);
+                } catch (e) {
+                    setServerOnline(false);
+                } finally {
+                    clearTimeout(timer);
+                }
+            }
+
+            function startStatusPolling() {
+                stopStatusPolling();
+                checkServerStatus();
+                statusTimer = setInterval(checkServerStatus, STATUS_POLL_INTERVAL);
+            }
+
+            function stopStatusPolling() {
+                if (statusTimer) {
+                    clearInterval(statusTimer);
+                    statusTimer = null;
+                }
             }
 
             function syncChatbotLanguage(nextLanguage) {
-                var copy = chatbotTranslations[nextLanguage] || chatbotTranslations.bn;
+                var copy = translations[nextLanguage] || translations.bn;
 
                 root.dataset.locale = nextLanguage;
-                root.dataset.welcome = copy.welcome;
 
                 windowEl.setAttribute('aria-label', copy.name + ' ' + copy.chat);
                 root.querySelector('.ai-chatbot-title-name').textContent = copy.title;
-                root.querySelector('.ai-chatbot-title-status').textContent = copy.online;
+                applyServerStatus();
 
                 inputEl.placeholder = copy.placeholder;
                 inputEl.setAttribute('aria-label', copy.message);
@@ -943,17 +801,15 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
                     footer.firstChild.textContent = copy.powered + ' ';
                 }
 
-                welcome = copy.welcome;
-                T.error = copy.error;
-                T.unknown = copy.unknown;
                 root.style.visibility = 'visible';
             }
 
             function openChat() {
                 root.dataset.open = 'true';
-                root.dataset.minimized = 'false';
                 windowEl.style.display = 'flex';
                 launcher.style.display = 'none';
+
+                startStatusPolling();
 
                 setTimeout(function () {
                     inputEl.focus();
@@ -965,41 +821,25 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
                 root.dataset.open = 'false';
                 windowEl.style.display = 'none';
                 launcher.style.display = 'block';
+                stopStatusPolling();
                 launcher.focus();
-            }
-
-            function minimizeChat() {
-                hideChat();
-                root.dataset.minimized = 'true';
             }
 
             function resetChat() {
                 generation++;
                 sessionId = null;
-                lastSources = [];
 
                 messagesEl.innerHTML = '';
                 inputEl.value = '';
                 inputEl.style.height = 'auto';
                 sendBtn.disabled = false;
 
-                if (resetEndpoint) {
-                    fetch(resetEndpoint, {
-                        method: 'POST',
-                        headers: {
-                            'Accept': 'application/json',
-                            'X-CSRF-TOKEN': getCsrfToken()
-                        }
-                    }).catch(function () {});
-                }
-
-                addMessage(welcome, 'bot');
+                addMessage(getCopy().welcome, 'bot');
             }
 
             function closeChat() {
                 hideChat();
                 resetChat();
-                root.dataset.minimized = 'false';
             }
 
             function scrollToBottom() {
@@ -1128,6 +968,8 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
                         })
                     });
 
+                    setServerOnline(response.ok);
+
                     if (gen !== generation) return;
 
                     removeTyping();
@@ -1140,7 +982,7 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
 
                     if (gen !== generation) return;
 
-                    var reply = T.unknown;
+                    var reply = getCopy().unknown;
 
                     if (data && typeof data.answer === 'string' && data.answer.trim() !== '') {
                         reply = data.answer;
@@ -1150,17 +992,17 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
                         sessionId = data.session_id;
                     }
 
-                    lastSources = (data && Array.isArray(data.sources)) ? data.sources : [];
-
                     addMessage(reply, 'bot');
 
                 } catch (error) {
                     console.error('Chatbot error:', error);
 
+                    if (!response) setServerOnline(false);
+
                     if (gen !== generation) return;
 
                     removeTyping();
-                    addMessage(T.error, 'bot');
+                    addMessage(getCopy().error, 'bot');
 
                 } finally {
                     if (gen === generation) {
@@ -1176,7 +1018,7 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
 
             launcher.addEventListener('click', openChat);
             closeBtn.addEventListener('click', closeChat);
-            minimizeBtn.addEventListener('click', minimizeChat);
+            minimizeBtn.addEventListener('click', hideChat);
             sendBtn.addEventListener('click', sendMessage);
             inputEl.addEventListener('input', resizeInput);
 
@@ -1189,11 +1031,11 @@ $chatbotBotSide = in_array($chatbotBotSide ?? 'left', ['right', 'left'], true)
 
             document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape' && root.dataset.open === 'true') {
-                    minimizeChat();
+                    hideChat();
                 }
             });
 
             syncChatbotLanguage(localStorage.getItem(websiteLanguageKey) === 'bn' ? 'bn' : 'en');
-            addMessage(welcome, 'bot');
+            addMessage(getCopy().welcome, 'bot');
         })();
     </script>

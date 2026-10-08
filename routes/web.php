@@ -39,30 +39,6 @@ Route::get('/chatbot-test', function () {
 
 /*
 |--------------------------------------------------------------------------
-| Chatbot API Endpoint
-|--------------------------------------------------------------------------
-|
-| IMPORTANT:
-| welcome.blade.php contains the chatbot backend.
-|
-| GET  -> welcome page
-| POST -> chatbot request is intercepted inside welcome.blade.php
-|
-*/
-
-Route::match(['get', 'post'], '/chatbot/message', function () {
-
-    // app()->setLocale(
-    //     session('locale', 'bn')
-    // );
-
-    return "Hey";
-
-});
-
-
-/*
-|--------------------------------------------------------------------------
 | Language Switch
 |--------------------------------------------------------------------------
 */
